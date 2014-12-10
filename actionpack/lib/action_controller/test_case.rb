@@ -116,43 +116,18 @@ module ActionController
         rendered = @_templates
         msg = message || sprintf("expecting <%s> but rendering with <%s>",
                 options.inspect, rendered.keys)
-        matches_template =
-          case options
-          when String
-            !options.empty? && rendered.any? do |t, num|
-              options_splited = options.split(File::SEPARATOR)
-              t_splited = t.split(File::SEPARATOR)
-              t_splited.last(options_splited.size) == options_splited
-            end
-          when Regexp
-            rendered.any? { |t,num| t.match(options) }
-          when NilClass
-            rendered.blank?
-          end
-        assert matches_template, msg
+        assert matches_template(options, rendered), msg
       when Hash
         options.assert_valid_keys(:layout, :partial, :locals, :count, :file)
 
         if options.key?(:layout)
           expected_layout = options[:layout]
           msg = message || sprintf("expecting layout <%s> but action rendered <%s>",
-                  expected_layout, @_layouts.keys)
-
-          case expected_layout
-          when String, Symbol
-            assert_includes @_layouts.keys, expected_layout.to_s, msg
-          when Regexp
-            assert(@_layouts.keys.any? {|l| l =~ expected_layout }, msg)
-          when nil, false
-            assert(@_layouts.empty?, msg)
-          end
+            expected_layout, @_layouts.keys)
+          matches_layout(expected_layout, msg)
         end
 
-        if options[:file]
-          assert_includes @_files.keys, options[:file]
-        elsif options.key?(:file)
-          assert @_files.blank?, "expected no files but #{@_files.keys} was rendered"
-        end
+        matches_file(options)
 
         if expected_partial = options[:partial]
           if expected_locals = options[:locals]
@@ -185,6 +160,44 @@ module ActionController
         end
       else
         raise ArgumentError, "assert_template only accepts a String, Symbol, Hash, Regexp, or nil"
+      end
+    end
+
+    private
+
+    def matches_template(options, rendered)
+      case options
+      when String
+        !options.empty? && rendered.any? do |t, num|
+          options_splited = options.split(File::SEPARATOR)
+          t_splited = t.split(File::SEPARATOR)
+          t_splited.last(options_splited.size) == options_splited
+        end
+      when Regexp
+        rendered.any? { |t,num| t.match(options) }
+      when NilClass
+        rendered.blank?
+      end
+    end
+
+    def matches_layout(expected_layout, msg)
+      case expected_layout
+      when String, Symbol
+        assert_includes @_layouts.keys, expected_layout.to_s, msg
+      when Regexp
+        assert(@_layouts.keys.any? {|l| l =~ expected_layout }, msg)
+      when nil, false
+        assert(@_layouts.empty?, msg)
+      else
+        raise ArgumentError, "assert_template only accepts a String, Symbol, Regexp, or nil for :layout"
+      end
+    end
+
+    def matches_file(options)
+      if options[:file]
+        assert_includes @_files.keys, options[:file]
+      elsif options.key?(:file)
+        assert @_files.blank?, "expected no files but #{@_files.keys} was rendered"
       end
     end
   end
