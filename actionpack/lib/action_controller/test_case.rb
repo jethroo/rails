@@ -112,22 +112,12 @@ module ActionController
 
       case options
       when NilClass, Regexp, String, Symbol
-        options = options.to_s if Symbol === options
-        rendered = @_templates
-        msg = message || sprintf("expecting <%s> but rendering with <%s>",
-                options.inspect, rendered.keys)
-        assert matches_template(options, rendered), msg
+        assert_matches_template(options, message)
       when Hash
         options.assert_valid_keys(:layout, :partial, :locals, :count, :file)
 
-        if options.key?(:layout)
-          expected_layout = options[:layout]
-          msg = message || sprintf("expecting layout <%s> but action rendered <%s>",
-            expected_layout, @_layouts.keys)
-          matches_layout(expected_layout, msg)
-        end
-
-        matches_file(options)
+        assert_matches_layout(options, message)
+        assert_matches_file(options)
 
         if expected_partial = options[:partial]
           if expected_locals = options[:locals]
@@ -165,8 +155,12 @@ module ActionController
 
     private
 
-    def matches_template(options, rendered)
-      case options
+    def assert_matches_template(options, message)
+      options = options.to_s if Symbol === options
+      msg = message || sprintf("expecting <%s> but rendering with <%s>",
+                options.inspect, @_templates.keys)
+      rendered = @_templates
+      matching = case options
       when String
         !options.empty? && rendered.any? do |t, num|
           options_splited = options.split(File::SEPARATOR)
@@ -178,9 +172,14 @@ module ActionController
       when NilClass
         rendered.blank?
       end
+      assert(matching, msg)
     end
 
-    def matches_layout(expected_layout, msg)
+    def assert_matches_layout(options, message)
+      return unless options.key?(:layout)
+      expected_layout = options[:layout]
+      msg = message || sprintf("expecting layout <%s> but action rendered <%s>",
+            expected_layout, @_layouts.keys)
       case expected_layout
       when String, Symbol
         assert_includes @_layouts.keys, expected_layout.to_s, msg
@@ -193,7 +192,7 @@ module ActionController
       end
     end
 
-    def matches_file(options)
+    def assert_matches_file(options)
       if options[:file]
         assert_includes @_files.keys, options[:file]
       elsif options.key?(:file)
