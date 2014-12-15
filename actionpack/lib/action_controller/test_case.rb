@@ -118,36 +118,7 @@ module ActionController
 
         assert_matches_layout(options, message)
         assert_matches_file(options)
-
-        if expected_partial = options[:partial]
-          if expected_locals = options[:locals]
-            if defined?(@_rendered_views)
-              view = expected_partial.to_s.sub(/^_/, '').sub(/\/_(?=[^\/]+\z)/, '/')
-
-              partial_was_not_rendered_msg = "expected %s to be rendered but it was not." % view
-              assert_includes @_rendered_views.rendered_views, view, partial_was_not_rendered_msg
-
-              msg = 'expecting %s to be rendered with %s but was with %s' % [expected_partial,
-                                                                             expected_locals,
-                                                                             @_rendered_views.locals_for(view)]
-              assert(@_rendered_views.view_rendered?(view, options[:locals]), msg)
-            else
-              warn "the :locals option to #assert_template is only supported in a ActionView::TestCase"
-            end
-          elsif expected_count = options[:count]
-            actual_count = @_partials[expected_partial]
-            msg = message || sprintf("expecting %s to be rendered %s time(s) but rendered %s time(s)",
-                     expected_partial, expected_count, actual_count)
-            assert(actual_count == expected_count.to_i, msg)
-          else
-            msg = message || sprintf("expecting partial <%s> but action rendered <%s>",
-                    options[:partial], @_partials.keys)
-            assert_includes @_partials, expected_partial, msg
-          end
-        elsif options.key?(:partial)
-          assert @_partials.empty?,
-            "Expected no partials to be rendered"
-        end
+        assert_matches_partial(options, message)
       else
         raise ArgumentError, "assert_template only accepts a String, Symbol, Hash, Regexp, or nil"
       end
@@ -160,6 +131,7 @@ module ActionController
       msg = message || sprintf("expecting <%s> but rendering with <%s>",
                 options.inspect, @_templates.keys)
       rendered = @_templates
+
       matching = case options
       when String
         !options.empty? && rendered.any? do |t, num|
@@ -172,14 +144,17 @@ module ActionController
       when NilClass
         rendered.blank?
       end
+
       assert(matching, msg)
     end
 
     def assert_matches_layout(options, message)
       return unless options.key?(:layout)
+
       expected_layout = options[:layout]
       msg = message || sprintf("expecting layout <%s> but action rendered <%s>",
             expected_layout, @_layouts.keys)
+
       case expected_layout
       when String, Symbol
         assert_includes @_layouts.keys, expected_layout.to_s, msg
@@ -188,7 +163,7 @@ module ActionController
       when nil, false
         assert(@_layouts.empty?, msg)
       else
-        raise ArgumentError, "assert_template only accepts a String, Symbol, Regexp, or nil for :layout"
+        raise ArgumentError, "assert_template only accepts a String, Symbol, Regexp, nil or false for :layout"
       end
     end
 
@@ -197,6 +172,38 @@ module ActionController
         assert_includes @_files.keys, options[:file]
       elsif options.key?(:file)
         assert @_files.blank?, "expected no files but #{@_files.keys} was rendered"
+      end
+    end
+
+    def assert_matches_partial(options, message)
+      if expected_partial = options[:partial]
+        if expected_locals = options[:locals]
+          if defined?(@_rendered_views)
+            view = expected_partial.to_s.sub(/^_/, '').sub(/\/_(?=[^\/]+\z)/, '/')
+
+            partial_was_not_rendered_msg = "expected %s to be rendered but it was not." % view
+            assert_includes @_rendered_views.rendered_views, view, partial_was_not_rendered_msg
+
+            msg = 'expecting %s to be rendered with %s but was with %s' % [expected_partial,
+                                                                           expected_locals,
+                                                                           @_rendered_views.locals_for(view)]
+            assert(@_rendered_views.view_rendered?(view, options[:locals]), msg)
+          else
+            warn "the :locals option to #assert_template is only supported in a ActionView::TestCase"
+          end
+        elsif expected_count = options[:count]
+          actual_count = @_partials[expected_partial]
+          msg = message || sprintf("expecting %s to be rendered %s time(s) but rendered %s time(s)",
+                   expected_partial, expected_count, actual_count)
+          assert(actual_count == expected_count.to_i, msg)
+        else
+          msg = message || sprintf("expecting partial <%s> but action rendered <%s>",
+                  options[:partial], @_partials.keys)
+          assert_includes @_partials, expected_partial, msg
+        end
+      elsif options.key?(:partial)
+        assert @_partials.empty?,
+          "Expected no partials to be rendered"
       end
     end
   end
